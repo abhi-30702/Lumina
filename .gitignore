@@ -1,0 +1,25 @@
+# Runtime data - not tracked in version control
+memory/
+
+# Logs (ignore content but keep directory placeholder)
+logs/*
+!logs/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+.env.*
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
