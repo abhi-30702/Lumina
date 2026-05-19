@@ -11,9 +11,14 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Notes (user-generated runtime content - not tracked)
+notes/*
+!notes/.gitkeep
+
 # Environment
 .env
 .env.*
+!.env.example
 
 # Virtual environments
 venv/
