@@ -1,0 +1,16 @@
+ollama==0.2.1
+openai-whisper==20231117
+TTS==0.22.0
+chromadb==0.5.0
+sentence-transformers==3.0.0
+duckduckgo-search==6.1.0
+PyQt6==6.7.0
+PyAudio==0.2.14
+sounddevice==0.4.7
+soundfile==0.12.1
+numpy==1.26.4
+python-dotenv==1.0.1
+loguru==0.7.2
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.25.1
+torch==2.3.0+cu118
