@@ -14,3 +14,4 @@ loguru==0.7.2
 fuzzywuzzy==0.18.0
 python-Levenshtein==0.25.1
 torch==2.3.0+cu118
+setuptools>=68.0
