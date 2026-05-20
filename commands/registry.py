@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable
 from loguru import logger
 
@@ -26,11 +26,16 @@ def lumina_command(trigger: list[str], description: str = ""):
 def match_command(text: str) -> tuple[Callable[[str], str] | None, str]:
     """Return (handler, arg) if input matches a command trigger, else (None, '')."""
     lower = text.lower().strip()
-    for cmd in _REGISTRY:
-        for trigger in cmd.triggers:
-            if lower.startswith(trigger):
-                arg = lower[len(trigger):].strip()
-                return cmd.handler, arg
+    # Flatten triggers and sort by length descending so longer triggers match first
+    pairs = sorted(
+        ((trigger, cmd.handler) for cmd in _REGISTRY for trigger in cmd.triggers),
+        key=lambda p: len(p[0]),
+        reverse=True,
+    )
+    for trigger, handler in pairs:
+        if lower == trigger or lower.startswith(trigger + " "):
+            arg = lower[len(trigger):].strip()
+            return handler, arg
     return None, ""
 
 
@@ -42,6 +47,6 @@ def load_all() -> None:
     import commands.built_in  # noqa: F401
     try:
         import commands.user_commands  # noqa: F401
-    except Exception as exc:
-        logger.warning(f"user_commands load error: {exc}")
+    except Exception:
+        logger.exception("user_commands load error")
     logger.info(f"Loaded {len(_REGISTRY)} commands")

@@ -1,8 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from loguru import logger
 from commands.registry import lumina_command
-from config import config
 
 
 @lumina_command(trigger=["what time is it", "what's the time"], description="Returns current time")
@@ -18,7 +16,7 @@ def get_date(args: str) -> str:
 @lumina_command(trigger=["help", "what can you do"], description="Lists available commands")
 def get_help(args: str) -> str:
     from commands.registry import list_commands
-    cmds = "\n".join(f"  • {c}" for c in list_commands())
+    cmds = "\n".join(f"  - {c}" for c in list_commands())
     return f"Here is what I can do:\n{cmds}"
 
 
