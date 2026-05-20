@@ -18,6 +18,7 @@ class Speaker:
         self._is_speaking = False
         self._stop_flag = threading.Event()
         logger.info(f"Loading TTS model '{config.tts_model}' ...")
+        # CPU-only TTS reserves VRAM for Ollama (16 layers of Mistral) + Whisper
         self._tts = TTS(model_name=config.tts_model, progress_bar=False, gpu=False)
         logger.success("TTS ready")
         self._thread = threading.Thread(target=self._worker, daemon=True)
@@ -28,24 +29,32 @@ class Speaker:
 
     def stop(self) -> None:
         self._stop_flag.set()
+        sd.stop()
         while not self._queue.empty():
             try:
                 self._queue.get_nowait()
             except queue.Empty:
                 break
-        self._stop_flag.clear()
 
     @property
     def is_speaking(self) -> bool:
         return self._is_speaking
+
+    def _emit_speaking(self, speaking: bool) -> None:
+        try:
+            self._on_speaking_change(speaking)
+        except Exception as exc:
+            logger.error(f"on_speaking_change callback error: {exc}")
 
     def _worker(self) -> None:
         while True:
             text = self._queue.get()
             if not text:
                 continue
+            self._stop_flag.clear()
             self._is_speaking = True
-            self._on_speaking_change(True)
+            self._emit_speaking(True)
+            tmp_path: str | None = None
             try:
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                     tmp_path = f.name
@@ -54,12 +63,13 @@ class Speaker:
                     data, sr = sf.read(tmp_path)
                     sd.play(data, sr)
                     sd.wait()
-                Path(tmp_path).unlink(missing_ok=True)
             except Exception as exc:
                 logger.error(f"TTS error: {exc}")
             finally:
+                if tmp_path:
+                    Path(tmp_path).unlink(missing_ok=True)
                 self._is_speaking = False
-                self._on_speaking_change(False)
+                self._emit_speaking(False)
 
 
 if __name__ == "__main__":
