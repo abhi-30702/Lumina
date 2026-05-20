@@ -37,6 +37,7 @@ class Brain:
             "num_thread": config.ollama_num_thread,
             "temperature": config.llm_temperature,
             "num_predict": config.llm_max_tokens,
+            "num_ctx": config.llm_context_window,
         }
 
     def chat(self, user_input: str, context: list[str] | None = None) -> str:
@@ -50,15 +51,16 @@ class Brain:
             reply = resp["message"]["content"]
         except Exception as exc:
             logger.error(f"Ollama error: {exc}")
-            reply = "Brain offline — please ensure Ollama is running."
+            reply = "I'm having trouble thinking right now. Please try again in a moment."
         self._history.append({"role": "user", "content": user_input})
         self._history.append({"role": "assistant", "content": reply})
         return reply
 
     def stream_chat(self, user_input: str, context: list[str] | None = None) -> Generator[str, None, None]:
         messages = self._build_messages(user_input, context or [])
-        full_reply = ""
+        full_reply = "I'm having trouble thinking right now. Please try again in a moment."
         try:
+            accumulated = ""
             for chunk in self._client.chat(
                 model=config.ollama_model,
                 messages=messages,
@@ -66,14 +68,15 @@ class Brain:
                 stream=True,
             ):
                 token = chunk["message"]["content"]
-                full_reply += token
+                accumulated += token
                 yield token
+            full_reply = accumulated
         except Exception as exc:
             logger.error(f"Ollama stream error: {exc}")
-            yield "Brain offline — please ensure Ollama is running."
-            return
-        self._history.append({"role": "user", "content": user_input})
-        self._history.append({"role": "assistant", "content": full_reply})
+            yield full_reply
+        finally:
+            self._history.append({"role": "user", "content": user_input})
+            self._history.append({"role": "assistant", "content": full_reply})
 
     def reset_history(self) -> None:
         self._history.clear()
