@@ -13,7 +13,10 @@ class Transcriber:
         self._model = whisper.load_model(name)
         logger.success(f"Whisper '{name}' ready")
 
-    def transcribe(self, audio: np.ndarray, sample_rate: int = 16000) -> str:
+    def transcribe(self, audio: np.ndarray) -> str:
+        if audio.size == 0:
+            logger.warning("transcribe called with empty audio, returning empty string")
+            return ""
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32) / 32768.0
         result = self._model.transcribe(
@@ -22,7 +25,9 @@ class Transcriber:
             fp16=False,
         )
         text = result.get("text", "").strip()
+        text = re.sub(r"[\(\[].*?[\)\]]", "", text)
         text = re.sub(r"[^\w\s'?!.,]", "", text)
+        text = " ".join(text.split())
         return text
 
     def transcribe_file(self, path: str) -> str:
@@ -32,7 +37,6 @@ class Transcriber:
 
 if __name__ == "__main__":
     import sounddevice as sd
-    import soundfile as sf
     from pathlib import Path
 
     t = Transcriber()
