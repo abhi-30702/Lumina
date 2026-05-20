@@ -1,6 +1,7 @@
 from __future__ import annotations
 import threading
 import time
+from collections.abc import Callable
 import numpy as np
 from loguru import logger
 import pyaudio
@@ -18,8 +19,8 @@ CHUNK_SECONDS = 2
 class Listener:
     def __init__(
         self,
-        on_utterance: callable,
-        on_wake: callable | None = None,
+        on_utterance: Callable[[str], None],
+        on_wake: Callable[[], None] | None = None,
     ) -> None:
         self._on_utterance = on_utterance
         self._on_wake = on_wake or (lambda: None)
@@ -27,16 +28,27 @@ class Listener:
         self._base = Transcriber(model_name=config.whisper_model)
         self._running = False
         self._pa = pyaudio.PyAudio()
+        self._thread: threading.Thread | None = None
+        self._stream = None
         logger.info("Listener initialized")
 
     def start(self) -> None:
         self._running = True
-        thread = threading.Thread(target=self._loop, daemon=True)
-        thread.start()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
         logger.info("Mic listener started")
 
     def stop(self) -> None:
+        logger.info("Stopping listener...")
         self._running = False
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+            self._thread = None
+        try:
+            self._pa.terminate()
+        except Exception as exc:
+            logger.error(f"PyAudio terminate error: {exc}")
+        logger.info("Listener stopped")
 
     def _record_chunk(self, stream: pyaudio.Stream, seconds: float) -> np.ndarray:
         frames = []
@@ -48,7 +60,7 @@ class Listener:
 
     def _is_wake_word(self, audio: np.ndarray) -> bool:
         text = self._tiny.transcribe(audio.copy()).lower()
-        score = fuzz.partial_ratio(config.wake_word, text) / 100.0
+        score = fuzz.partial_ratio(config.wake_word.lower(), text) / 100.0
         if score >= config.wake_word_threshold:
             logger.info(f"Wake word detected (score={score:.2f}, heard='{text}')")
             return True
@@ -76,22 +88,38 @@ class Listener:
             format=FORMAT, channels=CHANNELS, rate=RATE,
             input=True, frames_per_buffer=CHUNK,
         )
+        self._stream = stream
         logger.info("Listening for wake word...")
-        while self._running:
+        try:
+            prev_chunk: np.ndarray | None = None
+            while self._running:
+                try:
+                    chunk = self._record_chunk(stream, CHUNK_SECONDS)
+                    # Use sliding window to catch wake words spanning chunk boundaries
+                    if prev_chunk is not None:
+                        window = np.concatenate([prev_chunk, chunk])
+                    else:
+                        window = chunk
+                    if self._is_wake_word(window):
+                        self._on_wake()
+                        audio = self._capture_utterance(stream)
+                        text = self._base.transcribe(audio)
+                        if text.strip():
+                            logger.info(f"Utterance: '{text}'")
+                            self._on_utterance(text)
+                        prev_chunk = None  # reset window after wake word
+                    else:
+                        prev_chunk = chunk
+                except Exception as exc:
+                    logger.error(f"Listener error: {exc}")
+                    time.sleep(0.5)
+        finally:
             try:
-                chunk = self._record_chunk(stream, CHUNK_SECONDS)
-                if self._is_wake_word(chunk):
-                    self._on_wake()
-                    audio = self._capture_utterance(stream)
-                    text = self._base.transcribe(audio)
-                    if text.strip():
-                        logger.info(f"Utterance: '{text}'")
-                        self._on_utterance(text)
+                stream.stop_stream()
+                stream.close()
             except Exception as exc:
-                logger.error(f"Listener error: {exc}")
-                time.sleep(0.5)
-        stream.stop_stream()
-        stream.close()
+                logger.error(f"Stream close error: {exc}")
+            self._stream = None
 
 
 if __name__ == "__main__":
