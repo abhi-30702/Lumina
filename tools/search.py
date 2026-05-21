@@ -1,21 +1,22 @@
 from __future__ import annotations
-import re
 from loguru import logger
 from duckduckgo_search import DDGS
-from config import config
 
-SEARCH_TRIGGERS = [
+BODY_TRUNCATE_LEN = 300
+
+SEARCH_TRIGGERS = sorted([
     "search for", "look up", "find out", "what is the latest",
     "current news", "who is", "what happened to", "price of",
     "weather in", "how much does",
-]
+], key=len, reverse=True)
 
 
 def extract_query(user_input: str) -> str:
     lower = user_input.lower()
     for trigger in SEARCH_TRIGGERS:
-        if trigger in lower:
-            return user_input[user_input.lower().index(trigger) + len(trigger):].strip()
+        idx = lower.find(trigger)
+        if idx != -1:
+            return user_input[idx + len(trigger):].strip()
     return user_input.strip()
 
 
@@ -37,7 +38,7 @@ def format_for_prompt(results: list[dict]) -> str:
     lines = []
     for i, r in enumerate(results, 1):
         title = r.get("title", "")
-        body = r.get("body", "")[:300]
+        body = r.get("body", "")[:BODY_TRUNCATE_LEN]
         href = r.get("href", "")
         lines.append(f"{i}. {title}\n   {body}\n   Source: {href}")
     return "\n\n".join(lines)
