@@ -10,24 +10,28 @@ class WaveformWidget(QWidget):
         super().__init__(parent)
         self._amplitudes: list[float] = [0.0] * 40
         self._active = False
-        self._timer = QTimer()
+        self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(50)
         self.setMinimumHeight(40)
 
     def set_active(self, active: bool) -> None:
         self._active = active
         if not active:
             self._amplitudes = [0.0] * len(self._amplitudes)
+            self._timer.stop()
+            self.update()
+        else:
+            self._timer.start(50)
 
     def push_amplitude(self, value: float) -> None:
         self._amplitudes.pop(0)
         self._amplitudes.append(min(1.0, max(0.0, value)))
 
     def _tick(self) -> None:
-        if self._active:
-            noise = float(np.random.uniform(0.1, 0.6))
-            self.push_amplitude(noise)
+        if not self._active:
+            return
+        noise = float(np.random.uniform(0.1, 0.6))
+        self.push_amplitude(noise)
         self.update()
 
     def paintEvent(self, event) -> None:
