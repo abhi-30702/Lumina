@@ -1,11 +1,12 @@
 from __future__ import annotations
 import math
 from datetime import datetime
+from typing import Callable
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QApplication,
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
 from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QBrush
 from ui.waveform import WaveformWidget
 from ui.chat_panel import ChatPanel
@@ -26,8 +27,9 @@ class ArcReactor(QWidget):
         self._angle = 0.0
         self._pulse = 0.0
         self._speaking = False
-        self._timer = QTimer()
+        self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
+        # Always-on: ring is the "alive" indicator
         self._timer.start(30)
 
     def set_speaking(self, speaking: bool) -> None:
@@ -70,13 +72,14 @@ class HUDWindow(QMainWindow):
     status_signal = pyqtSignal(str, str)   # label, color
     speaking_signal = pyqtSignal(bool)
 
-    def __init__(self, on_text_input: callable | None = None) -> None:
+    def __init__(self, on_text_input: Callable[[str], None] | None = None) -> None:
         super().__init__()
         self._on_text_input = on_text_input or (lambda t: None)
         self._session_start = datetime.now()
+        self._drag_pos: QPoint | None = None
         self._setup_window()
         self._build_ui()
-        self._timer = QTimer()
+        self._timer = QTimer(self)
         self._timer.timeout.connect(self._update_session_timer)
         self._timer.start(1000)
         self.message_signal.connect(self._on_message)
@@ -212,7 +215,7 @@ class HUDWindow(QMainWindow):
             self._drag_pos = event.globalPosition().toPoint()
 
     def mouseMoveEvent(self, event) -> None:
-        if event.buttons() == Qt.MouseButton.LeftButton and hasattr(self, "_drag_pos"):
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
             self.move(self.pos() + event.globalPosition().toPoint() - self._drag_pos)
             self._drag_pos = event.globalPosition().toPoint()
 
