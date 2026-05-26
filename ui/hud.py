@@ -18,6 +18,7 @@ GREEN = "#00FF88"
 AMBER = "#FFAA00"
 RED = "#FF3333"
 GRAY = "#555555"
+BLUE = "#4488FF"
 
 
 class ArcReactor(QWidget):
@@ -208,6 +209,9 @@ class HUDWindow(QMainWindow):
 
     def set_speaking(self, speaking: bool) -> None:
         self.speaking_signal.emit(speaking)
+
+    def set_text_handler(self, handler: Callable[[str], None]) -> None:
+        self._on_text_input = handler
 
     # Drag to move frameless window
     def mousePressEvent(self, event) -> None:

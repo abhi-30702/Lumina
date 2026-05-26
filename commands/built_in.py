@@ -22,9 +22,7 @@ def get_help(args: str) -> str:
 
 @lumina_command(trigger=["clear memory", "forget everything"], description="Wipes conversation memory")
 def clear_memory(args: str) -> str:
-    from core.memory import MemoryManager
-    MemoryManager().clear_all()
-    return "Memory cleared."
+    return "__CLEAR_MEMORY__"
 
 
 @lumina_command(trigger=["stop", "cancel"], description="Stops current TTS")
